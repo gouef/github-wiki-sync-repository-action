@@ -1,0 +1,57 @@
+name: Github wiki sync repository action
+description: Create / Generate / Update Github wiki based on your repository documentation
+branding:
+  icon: book-open
+  color: green
+
+inputs:
+  dir:
+    required: true
+    default: "docs/"
+    description: "Directory of documentation which will be used to Github wiki"
+
+env:
+  GITHUB_TOKEN: "As provided by Github Actions"
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    - name: Set up Git
+      run: |
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+      shell: bash
+
+    - name: Clone Wiki Repository
+      run: |
+        git clone https://x-access-token:${{ env.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git ./wiki
+      shell: bash
+
+    - name: Sync Docs to Wiki
+      run: |
+        cp -R ${{ inputs.dir }} wiki/
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
+
+    - name: Commit and Push Wiki changes
+      run: |
+        cd wiki
+        git add .
+        if git diff --cached --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "[Update] Wiki from repository docs"
+          git push origin master
+        fi
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
+    - name: Cleanup
+      run: |
+        rm -R wiki/
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
