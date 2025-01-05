@@ -26,11 +26,20 @@ runs:
 
     - name: Clone Wiki Repository
       run: |
-        git clone https://x-access-token:${{ env.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git ./wiki
+        git clone https://x-access-token:${{ env.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git ./wiki || echo "Wiki repository not found."
       shell: bash
 
     - name: Sync Docs to Wiki
       run: |
+        if [ ! -d "./wiki/.git" ]; then
+          echo "Create first page (init) https://github.com/${{ github.repository }}/wiki/_new"
+          exit 1
+        fi
+        
+        if [ ! -d "./${{ inputs.dir }}" ]; then
+          echo "Directory ${{ inputs.dir }} does not exists."
+          mkdir ${{ inputs.dir }}
+        fi
         cp -R ${{ inputs.dir }} wiki/
       shell: bash
       env:
