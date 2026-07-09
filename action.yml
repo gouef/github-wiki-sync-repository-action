@@ -10,14 +10,12 @@ inputs:
     default: "docs/"
     description: "Directory of documentation which will be used to Github wiki"
 
-env:
-  GITHUB_TOKEN: "As provided by Github Actions"
-
 runs:
   using: composite
   steps:
     - name: Checkout repository
       uses: actions/checkout@v6
+
     - name: Set up Git
       run: |
         git config --global user.name "GitHub Actions"
@@ -25,27 +23,29 @@ runs:
       shell: bash
 
     - name: Clone Wiki Repository
+      id: clone_wiki
       run: |
-        git clone https://x-access-token:${{ env.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git ./wiki || echo "Wiki repository not found."
+        if git clone "https://x-access-token:${{ env.GITHUB_TOKEN || github.token }}@github.com/${{ github.repository }}.wiki.git" ./wiki; then
+          echo "wiki_exists=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "wiki_exists=false" >> "$GITHUB_OUTPUT"
+          echo "Wiki repository not found. Skipping wiki sync."
+          echo "If this is your first run, initialize wiki at https://github.com/${{ github.repository }}/wiki/_new"
+        fi
       shell: bash
 
     - name: Sync Docs to Wiki
+      if: steps.clone_wiki.outputs.wiki_exists == 'true'
       run: |
-        if [ ! -d "./wiki/.git" ]; then
-          echo "Create first page (init) https://github.com/${{ github.repository }}/wiki/_new"
-          exit 1
-        fi
-        
         if [ ! -d "./${{ inputs.dir }}" ]; then
-          echo "Directory ${{ inputs.dir }} does not exists."
-          mkdir ${{ inputs.dir }}
+          echo "Directory ${{ inputs.dir }} does not exist. Creating it."
+          mkdir -p "${{ inputs.dir }}"
         fi
-        cp -R ${{ inputs.dir }} wiki/
+        cp -R "${{ inputs.dir }}" wiki/
       shell: bash
-      env:
-        GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
 
     - name: Commit and Push Wiki changes
+      if: steps.clone_wiki.outputs.wiki_exists == 'true'
       run: |
         cd wiki
         git add .
@@ -56,11 +56,9 @@ runs:
           git push origin master
         fi
       shell: bash
-      env:
-        GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
+
     - name: Cleanup
+      if: steps.clone_wiki.outputs.wiki_exists == 'true'
       run: |
-        rm -R wiki/
+        rm -rf wiki/
       shell: bash
-      env:
-        GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
